@@ -1,0 +1,209 @@
+20260922
+========
+
+essential datatypes/domains in table attributes of a relational database
+
+- character varying (varchar)
+- character (char)
+- text 
+
+- integer (int)
+- decimal (numeric) 
+- float
+- double precision 
+
+- date
+- datetime
+
+- boolean 
+
+- serial 
+
+
+
+Notion of keys inside a database table
+- superkey: any unique combination of attributes
+- key: a superkey that is minimal (UNIQUE)
+- primary key: a key that cannot be null (PRIMARY KEY)
+
+
+For any table we have ONE AND ONLY ONE primary key
+
+Examples:
+
+movie (id, official_title, budget, year, length, plot)
+
+superkeys: 
+- id - K - PK
+- id, official_title 
+- official_title, year  - K
+- official_title, length - K 
+- plot - K
+- id, official_title, budget, year, length, plot
+
+
+
+rating(check_date, source, movie, scale, votes, score)
+
+superkeys:
+- check_date, source, movie - K - PK
+
+Examples of SQL DDL:
+
+CREATE TABLE imdb.rating (
+	check_date date NOT NULL,
+	"source" varchar(200) NOT NULL,
+	movie varchar(10) NOT NULL,
+	"scale" numeric NOT NULL,
+	votes int4 NOT NULL,
+	score numeric NOT NULL,
+	CHECK (((score >= (0)::numeric) AND (score <= scale))),
+	PRIMARY KEY (check_date, source, movie)
+);
+
+
+CREATE TABLE imdb.movie (
+	id varchar(10) NOT NULL PRIMARY KEY,
+	official_title varchar(200) NOT NULL,
+	budget numeric(12, 2),
+	"year" char(4),
+	length integer,
+	plot text NULL UNIQUE,
+	CONSTRAINT length_check CHECK ((length > 0)),
+	UNIQUE(official_title, year),
+	UNIQUE(official_title, length)
+);
+
+
+CREATE TABLE imdb.country (
+	iso3 bpchar(3) PRIMARY KEY, 
+	"name" varchar(50) NOT NULL PRIMARY KEY
+);
+
+
+20260923
+========
+
+movie (id, official_title, budget, year, length, plot)
+rating(check_date, source, movie, scale, votes, score)
+
+rating.movie -> movie.id (rating.movie is called foreign key)
+
+if I take a record in rating, how many movies are related? 1 and only one
+if I take a record in movie, how many records are related in rating? O to may 
+
+one-to-many relationship
+
+CREATE TABLE imdb.rating (
+	check_date date NOT NULL,
+	"source" varchar(200) NOT NULL,
+	movie varchar(10) NOT NULL REFERENCES movie(id),
+	"scale" numeric NOT NULL,
+	votes int4 NOT NULL,
+	score numeric NOT NULL,
+	CHECK (((score >= (0)::numeric) AND (score <= scale))),
+	PRIMARY KEY (check_date, source, movie)
+);
+
+
+movie (id, official_title, budget, year, length, plot)
+person(id, bio, birth_date, death_date, given_name)
+crew(movie, person)
+
+crew.movie -> movie.id (foreign key)
+crew.person -> person.id (foreign key)
+
+superkeys of person:
+- given_name, birth_date - K
+- bio - K
+- id - K - PK
+
+superkeys of crew:
+- movie, person - K - PK
+
+the situation between movie-person is many-to-many relationship 
+
+alternative model to consider that persons join movies with multiple roles
+
+movie (id, official_title, budget, year, length, plot)
+person(id, bio, birth_date, death_date, given_name)
+crew(movie, person, role, character)
+
+role: actor, producer, director, writer
+
+superkeys of crew (we decide that it is not possible to store movies in which a person interprets two characters):
+- movie, person, role - K - PK
+
+
+CREATE TABLE imdb.crew (
+	movie varchar(10) NOT NULL REFERENCES movie(id),
+	person varchar(10) NOT NULL REFERENCES person(id),
+	p_role varchar(10) NOT NULL CHECK p_role IN ('director', 'actor', 'producer', 'writer'),
+	character varchar(200),
+	PRIMARY KEY(movie, person, p_role) 
+)
+
+REFERENTIAL INTEGRITY CONSTRAINTS
+what happens when we delete a record from the movie table (and we know that there are foreign keys in rating and crew referring to movies)
+
+DELETE FROM imdb.movie WHERE id = '0494903';
+
+if a movie with id = '0494903' is not existing -> nothing is done, no problem
+
+if a movie with id = '0494903' is existing -> are there record referring to id = '0494903' in rating and crew?
+
+if the answer is yes -> the delete is aborted/canceled
+if the answer is no -> the delete is enforced 
+
+DELETE FROM imdb.person where birth_date = '1988-12-10';
+
+UPDATE imdb.movie SET id = '9494940' WHERE id = '9339494';
+
+UPDATE imdb.movie SET length = length + 1 WHERE year = '2010';
+
+DELETE FROM imdb.crew WHERE movie = '393494';
+
+INSERT INTO imdb.movie values ('94040', 'spiderman', NULL, '2026', 154, NULL);
+
+INSERT INTO imdb.crew values ('FGJ', '0001', 'director', NULL);
+
+
+The default policy on referential integrity is NO ACTION
+
+CREATE TABLE imdb.crew (
+	movie varchar(10) NOT NULL REFERENCES movie(id) ON UPDATE NO ACTION ON DELETE NO ACTION,
+	person varchar(10) NOT NULL REFERENCES person(id),
+	p_role varchar(10) NOT NULL CHECK p_role IN ('director', 'actor', 'producer', 'writer'),
+	character varchar(200),
+	PRIMARY KEY(movie, person, p_role) 
+)
+
+An alternative option to no action is CASCADE
+
+CREATE TABLE imdb.crew (
+	movie varchar(10) NOT NULL REFERENCES movie(id) ON UPDATE CASCADE,
+	person varchar(10) NOT NULL REFERENCES person(id) ON UPDATE CASCADE ON DELETE CASCADE,
+	p_role varchar(10) NOT NULL CHECK p_role IN ('director', 'actor', 'producer', 'writer'),
+	character varchar(200),
+	PRIMARY KEY(movie, person, p_role) 
+);
+
+CREATE TABLE imdb.rating (
+	check_date date NOT NULL,
+	"source" varchar(200) NOT NULL,
+	movie varchar(10) NOT NULL REFERENCES movie(id),
+	"scale" numeric NOT NULL,
+	votes int4 NOT NULL,
+	score numeric NOT NULL,
+	CHECK (((score >= (0)::numeric) AND (score <= scale))),
+	PRIMARY KEY (check_date, source, movie)
+);
+
+DELETE FROM imdb.movie WHERE id = '0494903';
+UPDATE imdb.movie SET id = '9494940' WHERE id = '9339494';
+
+UPDATE imdb.movie SET id = 'AB74512' WHERE id = '0074512';
+
+UPDATE imdb.person SET id = 'HJK' WHERE id = '34934030';
+DELETE FROM imdb.person WHERE birth_date = '1988-12-10';
+
