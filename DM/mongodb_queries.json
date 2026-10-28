@@ -1,0 +1,491 @@
+/* mongodb operators to study (please refer to the official MongoDB manual):
+-- $eq, $ne, $gt, $gte, $lt, $lte
+-- $and, $or, 
+-- $exists, $in, $nin
+-- $elemMatch
+
+mongodb functions to study (please refer to the official MongoDB manual):
+-- pretty()
+-- count()
+-- sort()
+*/
+/* 
+useful mongo commands
+
+show databases // list of available dbs
+use <dbname> // connect to the <dbname> database
+show collections // list of available collections in a db
+quit() // quit the mongo client
+*/
+/* drop the movie collection */
+db.movie.drop()
+
+/*
+import/export database collections 
+*/
+mongoimport --db imdb --collection movie <path_to_json_file>
+mongoexport --db imdb --collection movie --out=<path_to_json_file>
+
+/* insert example */
+db.movie.insert({
+	"movie_id": "383774",
+	"title": "Joker",
+	"year": "2019",
+	"length": 122,
+	"crew": [
+		{
+			"person_id": "0001618",
+			"given_name": "Joaquin Phoenix",
+			"role": "actor",
+			"character": "Joker"
+		},
+		{
+			"person_id": "0000134",
+			"given_name": " Robert De Niro",
+			"role": "actor",
+			"character": "Murray Franklin"
+		}
+	]
+});
+
+
+/* insert example with different structure */
+db.movie.insert({
+	"movie_id": "837993",
+	"title": "Tenet",
+	"year": "2020",
+	"length": 150,
+	"director": [
+		{
+			"person_id": "0634240",
+			"given_name": "Christopher Nolan"
+		}
+	],
+	"cast": [
+		{
+			"person_id": "4456120",
+			"given_name": "Elizabeth Debicki",
+			"character": "Kat"
+		},
+		{
+			"person_id": "2379787",
+			"given_name": "Robert Pattinson",
+			"character": "Neil"
+		}
+	]
+});
+
+
+/* delete a document according to the object id */
+db.movie.deleteOne(
+{
+	"_id": ObjectId("the id of the object to delete")
+});
+
+
+/* retrieve the movies of 2010 */
+/* the entire matching documents are shown */
+db.movie.find(
+{
+	"year": "2010"
+})
+
+/* only selected fields of the matching documents are shown */
+db.movie.find(
+{
+	"year": "2010"
+},
+{
+	"_id": 0,
+	"title": 1,
+	"year": 1,
+	"length": 1
+})
+
+/* retrieve the movies with length equal to 60 mins */
+db.movie.find(
+	{"length": 60},
+	{
+		"title": 1,
+		"year": 1,
+		"length": 1
+	}
+)
+
+/* retrieve the movies with length equal to 60 mins and year is 2010 */
+db.movie.find(
+	{
+		"length": 60,
+		"year": "2010"
+	},
+	{
+		"title": 1,
+		"year": 1,
+		"length": 1
+	}
+)
+
+/* alternative syntax */
+db.movie.find(
+	{
+		"length": {"$eq": 60},
+		"year": "2010"
+	},
+	{
+		"title": 1,
+		"year": 1,
+		"length": 1
+	}
+)
+
+/* retrieve the movies with length different from 60 mins */
+db.movie.find(
+	{
+		"length": {"$ne": 60},
+	},
+	{
+		"title": 1,
+		"year": 1,
+		"length": 1
+	}
+)
+
+/* retrieve the number of movies with length equal to 60 mins  */
+db.movie.find(
+	{
+		"length": 60,
+	},
+	{
+		"title": 1,
+		"year": 1,
+		"length": 1
+	}
+).count()
+
+
+/* retrieve the movies with length equal to 60 mins and sort the result by year (ascending sorting) */
+db.movie.find(
+	{"length": 60},
+	{
+		"title": 1,
+		"year": 1,
+		"length": 1
+	}
+).sort({
+	"year": 1
+})
+
+
+/* retrieve the movies with length equal to 60 mins and sort the result by year (descending sorting) */
+db.movie.find(
+	{"length": 60},
+	{
+		"title": 1,
+		"year": 1,
+		"length": 1
+	}
+).sort({
+	"year": -1
+})
+
+
+/* retrieve the movies of 2010 with a length greater than 120 minutes */
+db.movie.find(
+	{
+		"length": {"$gt": 120},
+		"year": "2010"
+	},
+	{
+		"title": 1,
+		"year": 1,
+		"length": 1
+	}
+)
+
+/* retrieve the movies of 2010 with a length less than 120 minutes */
+db.movie.find(
+	{
+		"length": {"$lt": 120},
+		"year": "2010"
+	},
+	{
+		"title": 1,
+		"year": 1,
+		"length": 1
+	}
+)
+
+/* retrieve the movies of 2010 with a length less than 120 minutes (including 120 mins) */
+db.movie.find(
+	{
+		"length": {"$lte": 120},
+		"year": "2010"
+	},
+	{
+		"title": 1,
+		"year": 1,
+		"length": 1
+	}
+)
+
+/* retrieve the movies of 2010 with a length greater than 120 minutes (including 120 mins) */
+db.movie.find(
+	{
+		"length": {"$gte": 120},
+		"year": "2010"
+	},
+	{
+		"title": 1,
+		"year": 1,
+		"length": 1
+	}
+)
+
+
+/* retrieve the movies NOT of 2010 with a length greater than 120 minutes */
+db.movie.find(
+{
+	"year": {"$ne": "2010"},
+	"length": {"$gt": 120}
+})
+
+
+/* retrieve movies with length between 60 and 120 minutes. Sort the result by length and title (ASC order) */
+db.movie.find(
+{
+	"length": {"$gt": 60,
+				  "$lt": 120}
+},
+	{
+		"title": 1,
+		"year": 1,
+		"length": 1
+	}
+).sort(
+{
+	"length": 1,
+	"title": 1
+})
+
+/* alternative using $and */
+db.movie.find(
+{
+	"$and": [
+		{"length": {"$gt": 60}},
+		{"length": {"$lt": 120}}
+	]
+})
+
+/* retrieve movies of 2010 or 2011 with length between 60 and 120 minutes. Sort the result by length and title (DESC order) */
+db.movie.find(
+{
+	"year": {"$in": ["2010", "2011"]},
+	"$and": [
+		{"length": {"$gt": 60}},
+		{"length": {"$lt": 120}}
+	]
+},	
+{
+		"title": 1,
+		"year": 1,
+		"length": 1
+	}
+).sort(
+{
+	"length": -1,
+	"title": -1
+})
+
+/* alternative syntax */
+db.movie.find(
+{
+	"$or": [
+		{"year": "2010"},
+		{"year": "2011"}
+	],
+	"$and": [
+		{"length": {"$gt": 60}},
+		{"length": {"$lt": 120}}
+	]
+},	
+{
+		"title": 1,
+		"year": 1,
+		"length": 1
+	}
+).sort(
+{
+	"length": -1,
+	"title": -1
+})
+
+/* retrieve movies year other than 2010 and 2011 with length between 60 and 120 minutes. Sort the result by length and title (DESC order) */
+db.movie.find(
+{
+	"year": {"$nin": ["2010", "2011"]},
+	"$and": [
+		{"length": {"$gt": 60}},
+		{"length": {"$lt": 120}}
+	]
+},	
+{
+		"title": 1,
+		"year": 1,
+		"length": 1
+	}
+).sort(
+{
+	"length": -1,
+	"title": -1
+})
+
+
+/* retrieve the title of movies with Alfred Hitchcock */
+db.movie.find(
+{
+	"crew.given_name": "Alfred Hitchcock"
+},
+{
+	"title": 1,
+	"year": 1,
+	"crew.given_name.$": 1
+})
+
+
+/* to enforce approximate queries over a field, regular expressions can be used */
+/* MongoDB adopts the Perl grammar for expressing regular expressions. A tutorial can be found here:
+https://perldoc.perl.org/perlretut */
+/* / is the regex delimiter
+   .* means any string of chars 
+   i means insensitive */
+
+/* find movie with hitchcock in the given name */
+db.movie.find(
+{
+	"crew.given_name": /.*hitchcock.*/i
+},
+{
+	"title": 1,
+	"year": 1,
+	"crew.given_name.$": 1
+})
+
+/* this is equivalent to the following one */
+/* the restrictions on using these two syntaxes (e.g., within the $in operator) are discussed here:
+https://www.mongodb.com/docs/manual/reference/operator/query/regex/#std-label-syntax-restrictions */
+db.movie.find(
+{
+	"crew.given_name": {"$regex": /.*hitchcock.*/i}
+},
+{
+	"title": 1,
+	"year": 1,
+	"crew.given_name.$": 1
+})
+
+
+/* use $ to show only the nested object where the match value is present */
+/* to show only the crew elements that match the request, the positional operator ($) is available (for each document, the operator returns the first crew element that matches the request):
+https://docs.mongodb.com/manual/reference/operator/projection/positional/ */
+/* consider the $filter operator for more detailed filtering operations over arrays */
+
+
+
+/* retrieve the movies that have not received any review */
+db.movie.find({
+	"ratings": {"$exists": false}
+})
+
+
+/* retrieve the movies that have been rated on Oct 31st 2017 */
+db.movie.find({
+	"ratings.rating_date": ISODate("2017-10-31")
+},
+{
+	"title": 1,
+	"year": 1,
+	"ratings": 1
+})
+
+
+/* retrieve the movies that have been rated in Nov 2017 */
+/* this is correct only if a movie has just one rating. With more than one rating this solution is wrong */
+
+
+
+/* see the following guide page for details about query conditions over nested objects:
+https://docs.mongodb.com/manual/tutorial/query-array-of-documents/ */
+
+
+
+/* retrieve the movies that have been rated in Nov 2017 where Leonardo di Caprio is a producer */
+/* this solution is wrong */
+db.movie.find(
+{
+	"ratings.rating_date": {
+		"$gte": ISODate("2017-11-01"),
+		"$lte": ISODate("2017-11-30")
+	},
+	"crew.given_name": {"$regex": /leonardo dicaprio/i},
+	"crew.role": "producer"
+},
+{
+	"title": 1,
+	"year": 1,
+	"ratings": 1,
+	"crew.$": 1
+})
+
+/* use elemMatch */
+db.movie.find(
+{
+	"ratings.rating_date": {
+		"$gte": ISODate("2017-11-01"),
+		"$lte": ISODate("2017-11-30")
+	},
+	"crew": { "$elemMatch": {
+		"given_name": {"$regex": /leonardo dicaprio/i},
+		"role": "producer"
+	}
+	}
+},
+{
+	"title": 1,
+	"year": 1,
+	"ratings": 1,
+	"crew.$": 1
+})
+
+
+/* to show only the crew elements that match the request, the positional operator ($) is available:
+https://docs.mongodb.com/manual/reference/operator/projection/positional/ */
+
+
+
+/* retrive movies with length between 100 and 150 minutes and year after 2015. Sort result by title */
+
+
+
+/* retrieve the movies with at least a crew member that is not actor */  
+
+
+
+/* retrieve the movies where all the crew members are actors */
+/* i.e., we do not have crew members with role different from actor */
+
+
+
+/* retrieve the movies where all the crew members have the field "character" without empty values (check the field is existing and not empty) */ 
+db.movie.find(
+{
+	"crew": { "$not": {
+		"$elemMatch": {
+			"$or": [
+				{ "character": {"$exists": false}},
+				{ "character": ""}
+			]
+		}
+	}}
+})
+
+
