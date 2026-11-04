@@ -1,0 +1,318 @@
+/* mongodb operators to study (aggregation framework):
+-- $project
+-- $match 
+-- $group
+-- $sum
+-- $avg
+-- $size
+-- $type
+-- $ifNull
+-- $set
+-- $cond
+-- $sort
+-- $unwind
+-- $push
+*/
+
+/* retrieve the number of movies from 2010 */
+db.movie.find(
+{
+	"year": "2010"
+}).count()
+
+db.movie.aggregate(
+	[
+		{ "$match": { "year": "2010" } },
+		{ "$group": {"_id": "$year", "movie_number": {"$sum": 1} } }
+	])
+
+
+
+/* Alternative, but less efficient solution to the exercise about movie count for 2010.  */
+
+db.movie.aggregate(
+	[
+		{ "$group": {"_id": "$year", "movie_number": {"$sum": 1} } },
+		{ "$match": { "_id": "2010" } }
+	])
+
+
+
+/* retrieve the number of movies by year */
+/* the '$' before a field name indicates that the value of this field from incoming document will be considered in the operation. In this example, $year means group by the values of the year field. */
+db.movie.aggregate(
+	[
+		{ "$group": {"_id": "$year", "movie_number": {"$sum": 1 } } }
+	])
+
+
+/* retrieve the number of movies with Leonardo DiCaprio */
+
+
+
+/* retrieve the overall length of movies with Leonardo DiCaprio */
+/* also add the count and the average to the result */
+/* compare the result of $avg against the manual average calculated by dividing sum and count */
+db.movie.aggregate(
+	[
+		{ "$match": { "crew.given_name": /.*DiCaprio.*/i } },
+		{ "$group": { "_id": null, "overall_duration": { "$sum": "$length" },  
+						"movie_number": { "$sum": 1 }, 
+						"average duration": { "$avg": "$length" } } },
+		{ "$project": { "overall_duration": 1, "movie_number": 1, "average duration": 1, "manual average": { "$divide": [ "$overall_duration", "$movie_number" ] } } }
+	])
+
+
+/* retrieve the movies with unique title */
+db.movie.aggregate(
+	[
+		{ "$group": { "_id": "$title", 
+			"number_of_movies_per_title": { "$sum": 1 } } },
+		{ "$match": { "number_of_movies_per_title": 1 } }
+	])
+
+
+/* retrieve the movies with non-unique title */
+db.movie.aggregate(
+	[
+		{ "$group": { "_id": "$title", 
+			"number_of_movies_per_title": { "$sum": 1 } } },
+		{ "$match": { "number_of_movies_per_title": { "$gt": 1 } } }
+	])
+
+/* double check on Marnie movie: is it true we have two movies with this title? */
+db.movie.find(
+{
+	"title": "Marnie"
+},
+{
+	"title": 1,
+	"year": 1
+})
+
+/* retrieve the number of movies with unique title */
+
+
+
+/* retrieve the number of movies with non-unique title */
+db.movie.aggregate(
+	[
+		{ "$group": { "_id": "$title", 
+			"number_of_movies_per_title": { "$sum": 1 } } },
+		{ "$match": { "number_of_movies_per_title": { "$gt": 1 } } },
+		{ "$group": { "_id": null, "number_of_nonunique_movies": { "$sum": 1 } } }
+	])
+
+
+
+/* retrieve the number of movies in the collection */
+
+
+
+/* Add a field called length_category. Set it to "short" for movies shorter than 90 minutes and "feature" otherwise. */
+db.movie.aggregate(
+	[
+		{ "$set": {
+			"length_category": {
+				"$cond": [
+					{ "$lt": [ "$length", 90 ] },
+					"short",
+					"feature"
+				]
+			}
+		}},
+		{ "$project": { "title": 1, "year": 1, "length": 1, "length_category": 1} }
+	])
+
+
+
+/* retrieve the number of persons in the crew of each movie */
+/* $size only works with array elements: if we have documents with missing value on crew or crew is not an array, an error is raised */
+db.movie.aggregate(
+	[
+		{ "$project": { "title": 1, "crew_size": { "$size": "$crew" } } }
+	])
+
+/* two solutions to the error on $size */
+db.movie.aggregate(
+	[
+		{ "$match": {"crew": { "$exists": true } } },
+		{ "$project": { "title": 1, "crew_size": { "$size": "$crew" } } }
+	])
+
+db.movie.aggregate(
+	[
+		{ "$project": { "title": 1, "crew": { "$ifNull": [ "$crew", [] ] } } },
+		{ "$project": { "title": 1, "crew_size": { "$size": "$crew" } } }
+	])
+
+
+/* retrieve the movies with empty crew */
+db.movie.aggregate(
+	[
+		{ "$project": { "title": 1, "crew": { "$ifNull": [ "$crew", [] ] } } },
+		{ "$project": { "title": 1, "crew_size": { "$size": "$crew" } } },
+		{ "$match": { "crew_size": 0 } }
+	])
+
+/* consider also the situation where crew is present but it is not an array */
+
+{
+	"_id": "fdkdfkdf",
+	...
+	"crew": {
+		"person_id": "sdfkljdas",
+		"given_name": "some value"
+	}
+	... 
+}
+
+db.movie.aggregate(
+	[
+		{ "$project": { "title": 1, "crew": { "$ifNull": [ "$crew", [] ] } } },
+		{ "$project": { "title": 1, "crew":  { "$cond": [
+			{"$isArray": "$crew"}, "$crew", ["$crew"] 
+		] } } },
+		{ "$project": { "title": 1, "crew_size": { "$size": "$crew" } } }
+	])
+
+
+/* alternative solution with $unwind */ 
+/* the _id property of $group can contain more attributes to provide a clear description of the group. If the first attribute used for grouping is an identifier, the subsequent attributes are not affecting the groups and are only used to project the values */
+db.movie.aggregate(
+	[
+		{ "$unwind": "$crew" },
+		{ "$group": { "_id": { "id": "$_id", "title": "$title" }, "crew_size": { "$sum": 1 } } }
+	])
+
+{
+	"_id": "a value",
+	"title": "a title",
+	"movie_id": "001",
+	"..."
+	"crew": [
+		{ 
+		"person_id": "001",
+		"given_name": "p1"
+		},
+		{ 
+		"person_id": "002",
+		"given_name": "p2"
+		},
+		{ 
+		"person_id": "003",
+		"given_name": "p3"
+		},
+	]
+}
+
+/* effect of unwind on $crew */
+{
+	"_id": "a value",
+	"title": "a title",
+	"movie_id": "001",
+	"..."
+	"crew": 
+		{ 
+		"person_id": "001",
+		"given_name": "p1"
+		}
+}
+
+{
+	"_id": "a value",
+	"title": "a title",
+	"movie_id": "001",
+	"..."
+	"crew":
+		{ 
+		"person_id": "002",
+		"given_name": "p2"
+		}
+}
+
+{
+	"_id": "a value",
+	"title": "a title",
+	"movie_id": "001",
+	"..."
+	"crew":
+		{ 
+		"person_id": "003",
+		"given_name": "p3"
+		}
+}
+
+/* For each movie, return its title and an array containing the name and role of every crew member. */
+db.movie.aggregate(
+	[
+		{ "$unwind": "$crew" },
+		{ "$group": { "_id": { "id": "$_id", "title": "$title" }, "crew_members": { "$push": { "person_id": "$crew.person_id", "name": "$crew.given_name", "role": "$crew.role" } } } }
+	])
+
+
+/* For each movie, return its title and an array containing the name of the directors */
+db.movie.aggregate(
+	[
+		{ "$unwind": "$crew" },
+		{ "$match": { "crew.role": "director" } },
+		{ "$group": { "_id": { "id": "$_id", "title": "$title" }, "directors": { "$push": { "person_id": "$crew.person_id", "name": "$crew.given_name" } } } }
+	])
+
+
+/* retrieve the average number of persons in the crew of each movie */
+
+
+
+/* retrieve the title and the score of movies rated in november 2017 */
+
+
+
+/* retrieve the number of movies of each actor */
+db.movie.aggregate(
+	[
+		{ "$unwind": "$crew" },
+		{ "$match": { "crew.role": "actor" } },
+		{ "$group": { "_id": { "person_id": "$crew.person_id", "given_name": "$crew.given_name"}, 
+			"movie_participations": { "$sum": 1 } } }
+	])
+
+
+
+/* retrieve the actors that participated to more than 10 movies */
+db.movie.aggregate(
+	[
+		{ "$unwind": "$crew" },
+		{ "$match": { "crew.role": "actor" } },
+		{ "$group": { "_id": { "person_id": "$crew.person_id", "given_name": "$crew.given_name"}, 
+			"movie_participations": { "$sum": 1 } } },
+		{ "$match": { "movie_participations": { "$gt": 10 } } }
+	])
+
+
+/* retrieve the whole number of ratings provided in 2017 */
+
+
+
+/* For each person in the crew, return their name and an array of movies they worked on. Each array entry should include the movie title, year, role, and character when available. */
+/* { "allowDiskUse": true } is inserted as a second parameter of the pipeline to enable the use of the disk when the amount of memory of the query exceeds the max */
+db.movie.aggregate(
+	[
+		{ "$unwind": "$crew" },
+		{ "$sort": { "year": 1 } },
+		{ "$group": { "_id": {"person_id": "$crew.person_id", "given_name": "$crew.given_name"}, "movies": { "$push": { "title": "$title", "year": "$year", "role": "$crew.role", "character": "$crew.character" } } } }
+	], { "allowDiskUse": true } )
+
+
+/* For each crew record, add a field called contribution. Set it to "acting" if the person is an actor, and "behind the scenes" otherwise. Show the character only for actors. */
+db.movie.aggregate(
+	[
+		{"$unwind": "$crew"},
+		{ "$set": { 
+			"contributions": {
+				"$cond": [ { "$eq": [ "$crew.role", "actor" ] }, "acting", "behind the scenes" ] } ,
+			"character_name": { 
+				"$cond": [ { "$eq": [ "$crew.role", "actor" ] }, "$crew.character", null ] }
+		} }
+	])
+
