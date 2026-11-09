@@ -1,0 +1,10 @@
+Alice, database, 28
+Bob, python, 25
+Bob, statistics, 27
+Carol, database, 12
+Carol, python, wd
+David, 29
+Statistics, 30 
+Alice, python, 30
+Carol, pyhton, 29
+Judy, database, 25

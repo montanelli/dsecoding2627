@@ -118,12 +118,35 @@ with open("dataset/supermarket.csv", newline="") as f:
 
 print(records)
 
-# skip the first row (column header)
+records = records[1:]
 
-# in column 1 we have the branch name of each operation
-# in column 7 we have the quantity sold in each transaction
-# build a dictionary where keys are branch names and values are corresponding lists of sold quantites
+# get the list of quantity items sold by each branch in each transaction
+branches = []
+items = []
+for r in records:
+    # in r[1] we have the name of the current branch
+    # in r[7] we have the item quantity
+    if r[1] not in branches:
+        branches.append(r[1])
+        new_item_list = [int(r[7])]
+        items.append(new_item_list)
+    else:
+        branch_index = branches.index(r[1])
+        items[branch_index].append(int(r[7]))
 
+# print(branches)
+# print(items)
+for b, i in zip(branches, items):
+    print(f"the item quantities of {b} is {i}.")
 
-# normalize the list of quantities per branch (use map and lambda function):
+# normalize the list of quantities per branch
 # https://en.wikipedia.org/wiki/Feature_scaling#Rescaling_(min-max_normalization)
+normalized_items = []
+for i in items:
+    min_val = min(i)
+    max_val = max(i)
+
+    normalized = list(map(lambda x: (x - min_val) / (max_val - min_val), i))
+    normalized_items.append(normalized)
+
+print(normalized_items)
