@@ -1,0 +1,184 @@
+/* dataset available at
+https://contents.islab.di.unimi.it/datasets/orders.json.zip 
+*/
+
+
+/* retrieve the orders submitted on Tuesday (order_dow = 2) between 8 and 20 */
+db.orders.find(
+{
+	"order_dow": 2,
+	"order_hour_of_day": {
+		"$gte": 8,
+		"$lte": 20
+	}
+}, 
+{
+	"order_id": 1,
+	"order_dow": 1,
+	"order_hour_of_day": 1
+})
+
+
+/* retrieve the orders submitted on Tuesday (order_dow = 2) between 8 and 20 where "soda" is ordered. sort the result by user_id */
+db.orders.find(
+{
+	"order_dow": 2,
+	"products.product_name": /.*soda.*/i,
+	"order_hour_of_day": {
+		"$gte": 8,
+		"$lte": 20
+	}
+}, 
+{
+	"order_id": 1,
+	"order_dow": 1,
+	"order_hour_of_day": 1
+}).sort({
+	"user_id": 1
+})
+
+
+/* count the number of orders submitted on Tuesday (order_dow = 2) between 8 and 20 where "soda" is ordered. */
+db.orders.find(
+{
+	"order_dow": 2,
+	"products.product_name": /.*soda.*/i,
+	"order_hour_of_day": {
+		"$gte": 8,
+		"$lte": 20
+	}
+}).count()
+
+/* this can be solved by using aggregation */
+db.orders.aggregate([
+	{ "$match": {
+		"order_dow": 2,
+		"products.product_name": /.*soda.*/i,
+		"order_hour_of_day": {
+			"$gte": 8,
+			"$lte": 20
+		} } },
+	{ "$group": { "_id": null, "number_of_orders": { "$sum": 1 } } },
+	{ "$project": { "_id": 0, "orders": "orders with soda on Tuesday in 8-20 hours", "number_of_orders": 1 } }
+])
+
+
+/* retrieve the orders submitted on Tuesday (order_dow = 2) between 8 and 20 where "soda" is ordered as first product in the cart (add_to_cart_order) */
+db.orders.find(
+{
+	"order_dow": 2,
+	"products": { "$elemMatch": { 
+		"product_name": /.*soda.*/i,
+		"add_to_cart_order": 1
+	} },	
+	"order_hour_of_day": {
+		"$gte": 8,
+		"$lte": 20
+	}
+}, 
+{
+	"order_id": 1,
+	"order_dow": 1,
+	"order_hour_of_day": 1,
+	"products.$": 1
+})
+
+/* alternative solution with aggregation framework */ 
+db.orders.aggregate([
+	{ "$unwind": "$products" },
+	{ "$match": {
+		"order_dow": 2,
+		"products.product_name": /.*soda.*/i,
+		"products.add_to_cart_order": 1,
+		"order_hour_of_day": {
+			"$gte": 8,
+			"$lte": 20
+		} } }
+])
+
+
+/* retrieve the orders in which both order_dow and order_hour_of_day are not provided */
+db.orders.find({
+	"order_dow": null,
+	"order_hour_of_day": null 
+},
+{ 
+	"order_dow": 1,
+	"order_hour_of_day": 1,
+	"order_id": 1
+})
+
+/* this is equivalent to the following */
+db.orders.find({
+	"order_dow": { "$exists": false },
+	"order_hour_of_day": { "$exists": false } 
+},
+{ 
+	"order_dow": 1,
+	"order_hour_of_day": 1,
+	"order_id": 1
+})
+
+
+/* retrieve the number of orders by dow and sort the result by dow */
+
+
+
+/* retrieve the orders submitted on Monday (order_dow = 1) and for each of them, return the number of products. Sort the result by the number of products in descending order */
+db.orders.aggregate([
+	{ "$match": { "order_dow": 1 } },
+	{ "$project": { "order_id": 1, "order_dow": 1, "products": { "$ifNull": [ "$products", [] ] } } },
+		{ "$project": { "order_id": 1, "order_dow": 1, "products":  { "$cond": [
+			{"$isArray": "$products"}, "$products", ["$products"] 
+		] } } },
+	{ "$project": { "order_id": 1, "order_dow": 1, "number_of_products": { "$size": "$products" } } }
+])
+
+/* alternative solution */
+db.orders.aggregate([
+	{ "$match": { "order_dow": 1 } },
+	{ "$unwind": "$products" },
+	{ "$group": { "_id": { "order_id": "$order_id" }, "number_of_products": { "$sum": 1 } } } 
+])
+
+
+/* retrieve the orders where the number of products is zero */
+db.orders.aggregate([
+	{ "$match": { "order_dow": 1 } },
+	{ "$project": { "order_id": 1, "order_dow": 1, "products": { "$ifNull": [ "$products", [] ] } } },
+		{ "$project": { "order_id": 1, "order_dow": 1, "products":  { "$cond": [
+			{"$isArray": "$products"}, "$products", ["$products"] 
+		] } } },
+	{ "$project": { "order_id": 1, "order_dow": 1, "number_of_products": { "$size": "$products" } } },
+	{ "$match": { "number_of_products": 0 } }
+])
+
+
+/* retrieve the average number of products in orders */
+
+
+
+/* retrieve the number of orders for each product of department "beverages" */
+db.orders.aggregate([
+	{"$unwind": "$products"},
+	{"$match": { "products.department": "beverages" } },
+	{"$group": { "_id": { "product_id": "$products.product_id", "product_name": "$products.product_name"}, "number_of_orders": { "$sum": 1 } } }
+])
+
+
+/* retrieve the products of department "beverages" that have been ordered more than 100 times */
+db.orders.aggregate([
+	{"$unwind": "$products"},
+	{"$match": { "products.department": "beverages" } },
+	{"$group": { "_id": { "product_id": "$products.product_id", "product_name": "$products.product_name"}, "number_of_orders": { "$sum": 1 } } },
+	{"$match": { "number_of_orders": { "$gt": 100 } } }
+])
+
+
+/* for each order submitted on Monday (order_dow = 1), retrieve the number of products by aisle */
+
+
+
+/* for each order submitted on Monday (order_dow = 1), retrieve the number of products and the average number of products per aisle */
+
+
