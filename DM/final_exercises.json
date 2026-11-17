@@ -131,7 +131,8 @@ db.orders.aggregate([
 		{ "$project": { "order_id": 1, "order_dow": 1, "products":  { "$cond": [
 			{"$isArray": "$products"}, "$products", ["$products"] 
 		] } } },
-	{ "$project": { "order_id": 1, "order_dow": 1, "number_of_products": { "$size": "$products" } } }
+	{ "$project": { "order_id": 1, "order_dow": 1, "number_of_products": { "$size": "$products" } } },
+	{ "$sort": { "Number of products": -1 } }
 ])
 
 /* alternative solution */
